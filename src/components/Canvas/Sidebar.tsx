@@ -1,79 +1,56 @@
-import React from 'react';
-import { Database, Server, Cloud, Activity } from 'lucide-react';
+import type React from 'react';
+import { useBoardStore } from '../../store/boardStore';
+import { createMicroservicesPreset, createServerlessPreset } from '../../data/templates';
+import { NODE_KIND_CONFIG, NODE_KIND_ORDER } from '../../nodeKinds';
+import './Sidebar.css';
 
 const Sidebar = () => {
+    const nodes = useBoardStore((state) => state.nodes);
+    const loadPreset = useBoardStore((state) => state.loadPreset);
+
     const onDragStart = (event: React.DragEvent, nodeType: string) => {
         event.dataTransfer.setData('application/reactflow', nodeType);
         event.dataTransfer.effectAllowed = 'move';
     };
 
+    const nextOffsetY = () =>
+        nodes.length === 0 ? 250 : Math.max(...nodes.map((node) => node.position.y)) + 250;
+
     return (
-        <aside style={{
-            width: '250px',
-            height: '100vh',
-            background: '#1a1a1a',
-            borderRight: '1px solid #333',
-            padding: '20px',
-            color: '#fff',
-            display: 'flex',
-            flexDirection: 'column',
-            gap: '20px'
-        }}>
-            <h3 style={{ fontSize: '1.2rem', marginBottom: '10px' }}>Arquitetura</h3>
+        <aside className="sidebar">
+            <h3 className="sidebar__heading">Arquitetura</h3>
 
-            <p style={{ fontSize: '0.8rem', color: '#888' }}>Arraste os itens para o board:</p>
+            <p className="sidebar__hint">Arraste os itens para o board:</p>
 
-            {/* Item: Banco de Dados */}
-            <div
-                className="dndnode database"
-                onDragStart={(event) => onDragStart(event, 'database')}
-                draggable
-                style={nodeStyle}
-            >
-                <Database size={20} />
-                <span>Database</span>
+            <div className="sidebar__nodes">
+                {NODE_KIND_ORDER.map((kind) => {
+                    const config = NODE_KIND_CONFIG[kind];
+                    const Icon = config.icon;
+                    return (
+                        <div
+                            key={kind}
+                            className="sidebar__node"
+                            onDragStart={(event) => onDragStart(event, kind)}
+                            draggable
+                        >
+                            <Icon size={20} color={config.color} />
+                            <span>{config.label}</span>
+                        </div>
+                    );
+                })}
             </div>
 
-            {/* Item: API/Server */}
-            <div
-                className="dndnode server"
-                onDragStart={(event) => onDragStart(event, 'default')}
-                draggable
-                style={nodeStyle}
-            >
-                <Server size={20} />
-                <span>API Server</span>
-            </div>
+            <hr className="sidebar__divider" />
 
-            <hr style={{ border: '0.5px solid #333', width: '100%' }} />
-
-            <h3 style={{ fontSize: '1rem' }}>Templates</h3>
-            <button style={btnStyle}>Microsserviços</button>
-            <button style={btnStyle}>Serverless Stack</button>
+            <h3 className="sidebar__heading sidebar__heading--small">Templates</h3>
+            <button className="sidebar__button" onClick={() => loadPreset(createMicroservicesPreset(nextOffsetY()))}>
+                Microsserviços
+            </button>
+            <button className="sidebar__button" onClick={() => loadPreset(createServerlessPreset(nextOffsetY()))}>
+                Serverless Stack
+            </button>
         </aside>
     );
-};
-
-// Estilos rápidos para os itens arrastáveis
-const nodeStyle = {
-    display: 'flex',
-    alignItems: 'center',
-    gap: '10px',
-    padding: '12px',
-    background: '#2a2a2a',
-    borderRadius: '6px',
-    cursor: 'grab',
-    border: '1px solid #444'
-};
-
-const btnStyle = {
-    padding: '10px',
-    background: '#3b82f6',
-    color: 'white',
-    border: 'none',
-    borderRadius: '4px',
-    cursor: 'pointer',
-    textAlign: 'left' as const
 };
 
 export default Sidebar;

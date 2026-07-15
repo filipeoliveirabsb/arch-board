@@ -1,0 +1,23 @@
+.arch-node {
+  color: #fff;
+  padding: 10px;
+  border-radius: 8px;
+  min-width: 120px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 5px;
+  background: #1e1e1e;
+  border-style: solid;
+  border-width: 2px;
+}
+
+.arch-node__label {
+  font-size: 12px;
+  font-weight: bold;
+}
+
+.arch-node__resource {
+  font-size: 10px;
+  color: #888;
+}

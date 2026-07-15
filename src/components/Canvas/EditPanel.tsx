@@ -1,71 +1,67 @@
-import React from 'react';
+import { useBoardStore } from '../../store/boardStore';
+import { NODE_KIND_CONFIG } from '../../nodeKinds';
+import type { NodeKind } from '../../types';
+import './EditPanel.css';
 
-// 1. Atualizamos a interface para aceitar o objeto newData
-interface EditPanelProps {
-    selectedNode: any;
-    onNodeUpdate: (id: string, newData: { label: string; resourceType: string }) => void;
-}
+const EditPanel = () => {
+    const selectedNodeId = useBoardStore((state) => state.selectedNodeId);
+    const selectedNode = useBoardStore((state) =>
+        state.nodes.find((node) => node.id === state.selectedNodeId)
+    );
+    const updateNodeData = useBoardStore((state) => state.updateNodeData);
+    const commitHistory = useBoardStore((state) => state.commitHistory);
 
-const EditPanel = ({ selectedNode, onNodeUpdate }: EditPanelProps) => {
-    if (!selectedNode) {
+    if (!selectedNodeId || !selectedNode) {
         return (
-            <aside style={panelStyle}>
-                <p style={{ color: '#666' }}>Selecione um componente</p>
+            <aside className="edit-panel">
+                <p className="edit-panel__empty">Selecione um componente</p>
             </aside>
         );
     }
 
-    // Função auxiliar para não repetir código
-    const handleChange = (field: string, value: string) => {
-        onNodeUpdate(selectedNode.id, {
+    const kind = (selectedNode.type ?? 'server') as NodeKind;
+    const resourceOptions = NODE_KIND_CONFIG[kind].resourceOptions;
+
+    const handleChange = (field: 'label' | 'resourceType', value: string) => {
+        updateNodeData(selectedNode.id, {
             ...selectedNode.data,
-            [field]: value
+            [field]: value,
         });
     };
 
     return (
-        <aside style={panelStyle}>
-            <h3 style={{ marginBottom: '15px' }}>Propriedades</h3>
+        <aside className="edit-panel">
+            <h3 className="edit-panel__title">Propriedades</h3>
 
-            <label style={labelStyle}>Nome do Componente:</label>
+            <label className="edit-panel__label">Nome do Componente:</label>
             <input
-                style={inputStyle}
+                className="edit-panel__input"
                 value={selectedNode.data.label || ''}
                 onChange={(evt) => handleChange('label', evt.target.value)}
+                onBlur={commitHistory}
             />
 
-            <label style={labelStyle}>Tipo de Recurso:</label>
-            <select
-                style={inputStyle}
-                value={selectedNode.data.resourceType || 'PostgreSQL'}
-                onChange={(evt) => handleChange('resourceType', evt.target.value)}
-            >
-                <option value="PostgreSQL">PostgreSQL</option>
-                <option value="Redis">Redis</option>
-                <option value="MongoDB">MongoDB</option>
-                <option value="Node.js">Node.js</option>
-            </select>
+            {resourceOptions.length > 0 && (
+                <>
+                    <label className="edit-panel__label">Tipo de Recurso:</label>
+                    <select
+                        className="edit-panel__input"
+                        value={selectedNode.data.resourceType || resourceOptions[0]}
+                        onChange={(evt) => {
+                            handleChange('resourceType', evt.target.value);
+                            commitHistory();
+                        }}
+                    >
+                        {resourceOptions.map((option) => (
+                            <option key={option} value={option}>
+                                {option}
+                            </option>
+                        ))}
+                    </select>
+                </>
+            )}
         </aside>
     );
-};
-
-const panelStyle = {
-    width: '250px',
-    background: '#1a1a1a',
-    borderLeft: '1px solid #333',
-    padding: '20px',
-    color: '#fff'
-};
-
-const labelStyle = { fontSize: '0.8rem', color: '#888', display: 'block', marginBottom: '5px' };
-const inputStyle = {
-    width: '100%',
-    background: '#333',
-    border: '1px solid #444',
-    color: '#fff',
-    padding: '8px',
-    borderRadius: '4px',
-    marginBottom: '15px'
 };
 
 export default EditPanel;

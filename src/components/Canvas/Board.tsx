@@ -1,62 +1,46 @@
-import { useCallback, useRef, useState, useEffect } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import ReactFlow, {
     Background,
     Controls,
     MiniMap,
-    useNodesState,
-    useEdgesState,
-    addEdge,
     BackgroundVariant,
-    type Connection,
+    type Node,
     type ReactFlowInstance,
-    type Node
 } from 'reactflow';
 import 'reactflow/dist/style.css';
 
-// Importando nosso nó customizado
-import DatabaseNode from '../Nodes/DatabaseNode';
+import GenericNode from '../Nodes/GenericNode';
+import { useBoardStore } from '../../store/boardStore';
+import { NODE_KIND_CONFIG, NODE_KIND_ORDER } from '../../nodeKinds';
+import type { ArchNode, NodeKind } from '../../types';
+import './Board.css';
 
-// Registro de tipos de nós
-const nodeTypes = {
-    database: DatabaseNode,
-};
+const nodeTypes = Object.fromEntries(
+    NODE_KIND_ORDER.map((kind) => [kind, GenericNode])
+) as Record<NodeKind, typeof GenericNode>;
 
-const initialNodes: Node[] = [
-    {
-        id: '1',
-        data: { label: 'Projeto de Arquitetura' },
-        position: { x: 250, y: 5 },
-        style: { background: '#333', color: '#fff', border: '1px solid #777', padding: 10 }
-    },
-];
-
-interface BoardProps {
-    onNodeSelect: (node: Node | null) => void;
-    updatedNode: Node | null; // Adicione esta linha
-}
-
-const Board = ({ onNodeSelect, updatedNode }: BoardProps) => {
+const Board = () => {
     const reactFlowWrapper = useRef<HTMLDivElement>(null);
-    const [nodes, setNodes, onNodesChange] = useNodesState(initialNodes);
-    const [edges, setEdges, onEdgesChange] = useEdgesState([]);
     const [reactFlowInstance, setReactFlowInstance] = useState<ReactFlowInstance | null>(null);
 
-    // 1. Lógica de Conexão entre nós
-    const onConnect = useCallback(
-        (params: Connection) => setEdges((eds) => addEdge(params, eds)),
-        [setEdges]
-    );
+    const nodes = useBoardStore((state) => state.nodes);
+    const edges = useBoardStore((state) => state.edges);
+    const onNodesChange = useBoardStore((state) => state.onNodesChange);
+    const onEdgesChange = useBoardStore((state) => state.onEdgesChange);
+    const onConnect = useBoardStore((state) => state.onConnect);
+    const addNode = useBoardStore((state) => state.addNode);
+    const setSelectedNodeId = useBoardStore((state) => state.setSelectedNodeId);
+    const undo = useBoardStore((state) => state.undo);
+    const redo = useBoardStore((state) => state.redo);
 
-    // 2. Lógica de Seleção
     const onNodeClick = useCallback((_: React.MouseEvent, node: Node) => {
-        onNodeSelect(node);
-    }, [onNodeSelect]);
+        setSelectedNodeId(node.id);
+    }, [setSelectedNodeId]);
 
     const onPaneClick = useCallback(() => {
-        onNodeSelect(null);
-    }, [onNodeSelect]);
+        setSelectedNodeId(null);
+    }, [setSelectedNodeId]);
 
-    // 3. Lógica de Drag & Drop
     const onDragOver = useCallback((event: React.DragEvent) => {
         event.preventDefault();
         event.dataTransfer.dropEffect = 'move';
@@ -66,7 +50,7 @@ const Board = ({ onNodeSelect, updatedNode }: BoardProps) => {
         (event: React.DragEvent) => {
             event.preventDefault();
 
-            const type = event.dataTransfer.getData('application/reactflow');
+            const type = event.dataTransfer.getData('application/reactflow') as NodeKind;
 
             if (!type || !reactFlowInstance) return;
 
@@ -75,33 +59,36 @@ const Board = ({ onNodeSelect, updatedNode }: BoardProps) => {
                 y: event.clientY,
             });
 
-            const newNode: Node = {
-                id: `${type}_${Date.now()}`,
+            const newNode: ArchNode = {
+                id: crypto.randomUUID(),
                 type,
                 position,
-                data: { label: `${type.toUpperCase()} Component` },
+                data: { label: NODE_KIND_CONFIG[type].label },
             };
 
-            setNodes((nds) => nds.concat(newNode));
+            addNode(newNode);
         },
-        [reactFlowInstance, setNodes]
+        [reactFlowInstance, addNode]
     );
 
     useEffect(() => {
-        if (updatedNode) {
-            setNodes((nds) =>
-                nds.map((node) => {
-                    if (node.id === updatedNode.id) {
-                        return { ...node, data: updatedNode.data }; // Sincroniza o objeto data todo
-                    }
-                    return node;
-                })
-            );
-        }
-    }, [updatedNode, setNodes]);
+        const onKeyDown = (event: KeyboardEvent) => {
+            const key = event.key.toLowerCase();
+            if (!(event.ctrlKey || event.metaKey) || key !== 'z') return;
+
+            event.preventDefault();
+            if (event.shiftKey) {
+                redo();
+            } else {
+                undo();
+            }
+        };
+        window.addEventListener('keydown', onKeyDown);
+        return () => window.removeEventListener('keydown', onKeyDown);
+    }, [undo, redo]);
 
     return (
-        <div ref={reactFlowWrapper} style={{ width: '100%', height: '100%', background: '#111' }}>
+        <div ref={reactFlowWrapper} className="board">
             <ReactFlow
                 nodes={nodes}
                 edges={edges}
@@ -114,6 +101,7 @@ const Board = ({ onNodeSelect, updatedNode }: BoardProps) => {
                 onNodeClick={onNodeClick}
                 onPaneClick={onPaneClick}
                 nodeTypes={nodeTypes}
+                deleteKeyCode={['Backspace', 'Delete']}
                 fitView
             >
                 <Background variant={BackgroundVariant.Dots} color="#333" gap={20} />
